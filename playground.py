@@ -11,7 +11,7 @@ import segmentation_models_pytorch as smp
 def main():
     seed=42
     seed_everything(seed)
-    bs=64
+    bs=4
     fold=0
     df_path = '/Users/sagar/Desktop/Ace/MiniapplesSegmentation/detection/train/train.csv'
     # model=get_model()
@@ -37,7 +37,7 @@ def main():
     
     Trainer=pl.Trainer(
                         # devices=1,
-                        # accelerator="gpu",
+                        # accelerator="mps",
                         max_epochs=35,
                         log_every_n_steps=10,
                         

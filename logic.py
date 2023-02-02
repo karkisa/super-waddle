@@ -5,7 +5,7 @@ import os
 import pandas as pd
 from torch.utils.data import DataLoader
 import segmentation_models_pytorch as smp
-import pdb
+import pdb, wandb
 class classifier(pl.LightningModule):
     def __init__(self, 
                  model,
@@ -25,14 +25,34 @@ class classifier(pl.LightningModule):
         self.bs = bs 
         self.fold = fold
         self.df = pd.read_csv(df_path)
-        self.train_imgs_paths = self.df[self.df["kfold"]!=self.fold]["img_path"]
-        self.train_mask_paths = self.df[self.df["kfold"]!=self.fold]['mask_path']
-        self.val_img_paths = self.df[self.df["kfold"]==self.fold]["img_path"]
-        self.val_mask_paths = self.df[self.df["kfold"]==self.fold]["mask_path"]
+        self.train_imgs_paths = self.df[self.df["kfold"]!=self.fold]["img_path"].values
+        self.train_mask_paths = self.df[self.df["kfold"]!=self.fold]['mask_path'].values
+        self.val_img_paths = self.df[self.df["kfold"]==self.fold]["img_path"].values
+        self.val_mask_paths = self.df[self.df["kfold"]==self.fold]["mask_path"].values
         self.shuffle =shuffle
         self.wandb_run = wandb_run
         self.LR=LR
 
+    def wandb_log_masks(self,original_image,class_labels,prediction_mask,ground_truth_mask):
+        wandb.log(
+                    {"my_image_key" : wandb.Image(original_image, masks=
+                                                    {
+                                                    "predictions" : {
+                                                        "mask_data" : prediction_mask,
+                                                        "class_labels" : class_labels
+                                                    },
+                                                    "ground_truth" : {
+                                                        "mask_data" : ground_truth_mask,
+                                                        "class_labels" : class_labels
+                                                    }
+                                                    }
+                                                )
+                    }
+                    
+                )
+
+        return
+    
     def train_dataloader(self) :
         train_ds = self.ds(self.train_imgs_paths,self.train_mask_paths)
         train_loader = DataLoader(train_ds,
