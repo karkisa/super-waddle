@@ -2,3 +2,6 @@ __pycache__
 detection
 wandb
 lightning_logs
+data
+.ipynb_checkpoints
+__pycache__
