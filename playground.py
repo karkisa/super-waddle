@@ -11,7 +11,7 @@ import segmentation_models_pytorch as smp
 def main():
     seed=42
     seed_everything(seed)
-    bs=4
+    bs=8
     fold=0
     json_path = 'data/via_region_data.json'
     img_dir = 'data'
@@ -19,10 +19,11 @@ def main():
     wandb_run = wandb.init(
                         project='Segmentation',
                         group=str(fold),
-                        name='exp0',resume=True
+                        name='exp2',
+                        # resume=True
                     )
     model =  smp.Unet(
-                            encoder_name='efficientnet-b0',        # choose encoder, e.g. mobilenet_v2 or efficientnet-b7
+                            encoder_name='efficientnet-b3',        # choose encoder, e.g. mobilenet_v2 or efficientnet-b7
                             encoder_weights="imagenet",     # use `imagenet` pre-trained weights for encoder initialization
                             in_channels=3                  # model input channels (1 for gray-scale images, 3 for RGB, etc.)
                  )
