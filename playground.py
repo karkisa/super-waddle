@@ -19,13 +19,14 @@ def main():
     wandb_run = wandb.init(
                         project='Segmentation',
                         group=str(fold),
-                        name='exp2',
+                        name='exp4',
                         # resume=True
                     )
     model =  smp.Unet(
                             encoder_name='efficientnet-b3',        # choose encoder, e.g. mobilenet_v2 or efficientnet-b7
                             encoder_weights="imagenet",     # use `imagenet` pre-trained weights for encoder initialization
-                            in_channels=3                  # model input channels (1 for gray-scale images, 3 for RGB, etc.)
+                            in_channels=3,                  # model input channels (1 for gray-scale images, 3 for RGB, etc.)
+                            activation='sigmoid'
                  )
     
     Classifier=classifier(
@@ -44,9 +45,9 @@ def main():
                         # accelerator="mps",
                         max_epochs=35,
                         log_every_n_steps=10,
+                        accumulate_grad_batches=4
                       )
     Trainer.fit(Classifier)
-
 
 
 if __name__=="__main__":

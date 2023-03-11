@@ -7,7 +7,7 @@ from torch.utils.data import DataLoader
 import segmentation_models_pytorch as smp
 import pdb, wandb
 from torchvision.transforms import ToPILImage
-
+import numpy as np
 class classifier(pl.LightningModule):
     def __init__(self, 
                  model,
@@ -37,29 +37,39 @@ class classifier(pl.LightningModule):
         self.wandb_run = wandb_run
         self.LR=LR
 
-    def wandb_log_masks(self,original_images,class_labels,prediction_masks,ground_truth_masks):
+    def wandb_log_masks(self,original_images,class_labels,prediction_masks,ground_truth_masks,thresh = 0.5):
         
             # pdb.set_trace()
-            dict_log = {}
+            dict_log = []
             for i,(original_image,prediction_mask,ground_truth_mask) in enumerate(zip (original_images,prediction_masks,ground_truth_masks)):
 
-                dict_log[f"my_image_key{i}"] =  wandb.Image(original_image.cpu().permute(1,2,0).numpy(), masks=
-                                                            {
-                                                            "predictions" : {
-                                                                "mask_data" : prediction_mask[0].cpu().detach().numpy(),
-                                                                "class_labels" : class_labels
-                                                            },
-                                                            "ground_truth" : {
-                                                                "mask_data" : ground_truth_mask[0].cpu().detach().numpy(),
-                                                                "class_labels" : class_labels
-                                                            }
-                                                            }
-                                                        )
+                dict_log.append(
+                                    wandb.Image(original_image.cpu().permute(1,2,0).numpy(), masks=
+                                                                            {
+                                                                            "predictions" : {
+                                                                                "mask_data" : (prediction_mask[0].cpu().detach().numpy() > thresh).astype(float),
+                                                                                "class_labels" : class_labels
+                                                                            },
+                                                                            "ground_truth" : {
+                                                                                "mask_data" : ground_truth_mask[0].cpu().detach().numpy(),
+                                                                                "class_labels" : class_labels
+                                                                            }
+                                                                            }
+                                                                        )
+
+                                )
             
-            wandb.log(dict_log)
+            wandb.log({"Outputs" : dict_log})
             return
         
-    
+    def get_metrices(self,outputs,targets):
+        tp, fp, fn, tn = smp.metrics.get_stats(outputs, targets.type(torch.int64), mode='binary', threshold=0.5)
+        iou_score = smp.metrics.iou_score(tp, fp, fn, tn, reduction="micro")
+        f1_score = smp.metrics.f1_score(tp, fp, fn, tn, reduction="micro")
+        # recall = smp.metrics.recall(tp, fp, fn, tn, reduction="micro-imagewise")
+        return iou_score,f1_score
+        
+
     def train_dataloader(self) :
         train_ds = self.ds(self.json_path,self.train_keys,self.img_dir)
         train_loader = DataLoader(train_ds,
@@ -79,7 +89,6 @@ class classifier(pl.LightningModule):
     def training_step(self, batch, batch_id) :
         imgs , masks =batch
         outputs = self.model(imgs)
-        self.wandb_log_masks(imgs,{0: "body"},outputs,masks)
         loss = self.criterion(outputs, masks)
         if self.wandb_run:
             self.wandb_run.log({"train": {"loss":loss}},commit=True)
@@ -88,11 +97,20 @@ class classifier(pl.LightningModule):
     def validation_step(self, batch, batch_id) :
         imgs , masks =batch
         outputs = self.model(imgs)
-        self.wandb_log_masks(imgs,{0: "body"},outputs,masks)
-        # pdb.set_trace()
         loss = self.criterion(outputs, masks)
+        iou_score,f1_score = self.get_metrices(outputs,masks)
         if self.wandb_run:
-            self.wandb_run.log({"val": {"loss":loss}},commit=True)
+            self.wandb_log_masks(imgs,{0: "body"},outputs,masks)
+            self.wandb_run.log(
+                                {
+                                    "val": {
+                                                "loss":loss,
+                                                "IOU" : iou_score,
+                                                "f1" : f1_score
+                                            },
+                                },
+                                commit=True,
+                               )
         return loss
 
     def configure_optimizers(self):
